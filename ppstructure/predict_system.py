@@ -38,6 +38,24 @@ from ppstructure.utility import parse_args, draw_structure_result
 
 logger = get_logger()
 
+def compute_iou(boxA, boxB):
+	# determine the (x, y)-coordinates of the intersection rectangle
+	xA = max(boxA[0], boxB[0])
+	yA = max(boxA[1], boxB[1])
+	xB = min(boxA[2], boxB[2])
+	yB = min(boxA[3], boxB[3])
+	# compute the area of intersection rectangle
+	interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
+	# compute the area of both the prediction and ground-truth
+	# rectangles
+	boxAArea = (boxA[2] - boxA[0] + 1) * (boxA[3] - boxA[1] + 1)
+	boxBArea = (boxB[2] - boxB[0] + 1) * (boxB[3] - boxB[1] + 1)
+	# compute the intersection over union by taking the intersection
+	# area and dividing it by the sum of prediction + ground-truth
+	# areas - the interesection area
+	iou = interArea / float(boxAArea + boxBArea - interArea)
+	# return the intersection over union value
+	return iou
 
 class StructureSystem(object):
     def __init__(self, args):
@@ -114,6 +132,17 @@ class StructureSystem(object):
             else:
                 h, w = ori_im.shape[:2]
                 layout_res = [dict(bbox=None, label='table')]
+
+            # vutttttttttttttttttttttt
+            # full_filter_boxes, full_filter_rec_res, full_ocr_time_dict = self.text_system(
+            #                     ori_im)
+            # for box, rec_res in zip(full_filter_boxes, full_filter_rec_res):
+            #     for region in layout_res:
+            #         box2 = region["bbox"]
+            #         iou = compute_iou(box, box2)
+            #         if iou > 0.8:
+            #             full_filter_boxes.remove(box)
+            # ----------------------------------------------
             res_list = []
             for region in layout_res:
                 res = ''
@@ -284,6 +313,16 @@ def main(args):
             if args.recovery and res != []:
                 from ppstructure.recovery.recovery_to_doc import sorted_layout_boxes, convert_info_docx
                 h, w, _ = img.shape
+                # vuttttttttttttttttttttttttttttttttt
+                for ele in res:
+                    if ele["type"]=="figure" and len(ele["res"]) >= 3:
+                        sum_text_region = 0
+                        for box in ele["res"]:
+                            sum_text_region += (box["text_region"][2][0]-box["text_region"][0][0])*(box["text_region"][2][1]-box["text_region"][0][1])
+                        ele_region = (ele["bbox"][2]-ele["bbox"][0])*(ele["bbox"][3]-ele["bbox"][1])
+                        if sum_text_region/ele_region >=0.5:
+                            ele["type"]="text"
+                # -----------------------------------
                 res = sorted_layout_boxes(res, w)
                 all_res += res
 
@@ -299,17 +338,31 @@ def main(args):
 
 if __name__ == "__main__":
     args = parse_args()
-    args.image_dir="./vutt_test/test2.png"
-    det_model_dir="/home/vutt/.paddleocr/whl/det/ch/ch_PP-OCRv3_det_infer"
-    rec_model_dir="/home/vutt/.paddleocr/whl/rec/ch/ch_PP-OCRv3_rec_infer"
-    rec_char_dict_path="/home/vutt/miniconda3/envs/py38/lib/python3.8/site-packages/paddleocr/ppocr/utils/ppocr_keys_v1.txt"
-    table_model_dir="/home/vutt/.paddleocr/whl/table/ch_ppstructure_mobile_v2.0_SLANet_infer"
-    table_char_dict_path="/home/vutt/miniconda3/envs/py38/lib/python3.8/site-packages/paddleocr/ppocr/utils/dict/table_structure_dict_ch.txt"
-    layout_model_dir="/home/vutt/.paddleocr/whl/layout/picodet_lcnet_x1_0_fgd_layout_cdla_infer"
-    layout_dict_path="/home/vutt/miniconda3/envs/py38/lib/python3.8/site-packages/paddleocr/ppocr/utils/dict/layout_dict/layout_cdla_dict.txt"
-    vis_font_path="../doc/fonts/simfang.ttf"
-    recovery=True
-    output="./vutt_output/"
+    args.image_dir="./vutt_test/vbcp2.pdf"
+    # args.image_dir="./vutt_test/test_vivi.jpg"
+    args.det_model_dir="/home/vutt/.paddleocr/whl/det/ch/ch_PP-OCRv3_det_infer"
+    # args.rec_model_dir="/home/vutt/.paddleocr/whl/rec/ch/ch_PP-OCRv3_rec_infer"
+    # args.rec_char_dict_path="/home/vutt/miniconda3/envs/py38/lib/python3.8/site-packages/paddleocr/ppocr/utils/ppocr_keys_v1.txt"
+
+    
+    # args.det_model_dir="/home/vutt/.paddleocr/whl/det/en/en_PP-OCRv3_det_infer"
+    # args.rec_algorithm="SVTR_LCNet"
+    # args.rec_model_dir="/home/vutt/.paddleocr/whl/rec/en/en_PP-OCRv3_rec_infer"
+    # args.rec_char_dict_path="/home/vutt/miniconda3/envs/py38/lib/python3.8/site-packages/paddleocr/ppocr/utils/en_dict.txt"
+    
+    # args.rec_algorithm="SAR"
+    args.rec_model_dir="/home/vutt/etc-workspace/PaddleOCR/vutt_preprocess/v3_vi_new/"
+    args.rec_char_dict_path="/home/vutt/etc-workspace/PaddleOCR/vutt_preprocess/vi_dict_full.txt"
+
+    args.table_model_dir="/home/vutt/.paddleocr/whl/table/ch_ppstructure_mobile_v2.0_SLANet_infer"
+    args.table_char_dict_path="/home/vutt/miniconda3/envs/py38/lib/python3.8/site-packages/paddleocr/ppocr/utils/dict/table_structure_dict_ch.txt"
+    args.layout_model_dir="/home/vutt/.paddleocr/whl/layout/picodet_lcnet_x1_0_fgd_layout_infer"
+    args.layout_dict_path="/home/vutt/miniconda3/envs/py38/lib/python3.8/site-packages/paddleocr/ppocr/utils/dict/layout_dict/layout_cdla_dict.txt"
+    args.vis_font_path="../doc/fonts/simfang.ttf"
+    args.recovery=True
+    # args.layout_score_threshold=0.5
+    args.output="./vutt_output/"
+    # args.layout=False
 
     if args.use_mp:
         p_list = []
